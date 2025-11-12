@@ -136,7 +136,7 @@ from ultralytics.nn.Addmodules.Recursive_Bi_AFPN import Recursive_ASFF2_BiFPN_Ad
 from ultralytics.nn.Addmodules.SPPF_improves import SPPF_deformable_LKA,Efficient_SPPF
 
 #### 自己改进
-from ultralytics.nn.Addmodules.CMMFWithenhanceMSDAF import MMFD
+from ultralytics.nn.Addmodules.MMFD import MMFD
 
 from ultralytics.nn.Addmodules.AFPN import Detect_AFPN, ASFF2, ASFF3
 from ultralytics.nn.Addmodules.ASFF import Detect_ASFF
