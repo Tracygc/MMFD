@@ -1,4 +1,4 @@
-# ECFFN
+# MMFD
 MMFD: Modality-aware and Multi-scale Feature Fusion Network for Multispectral Fusion Detection
 
 
