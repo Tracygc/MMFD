@@ -9,6 +9,7 @@ from pathlib import Path
 
 import thop
 import torch
+import torch.nn as nn
 from timm.models.focalnet import FocalModulation
 
 
@@ -120,7 +121,7 @@ from ultralytics.nn.Addmodules.Slimneck import VoVGSCSP, GSConv, VoVGSCSPC, VoVG
 from ultralytics.nn.Addmodules.Slimneckv2 import SNI, GSConvE, GSConvE2, ESD, ESD2
 from ultralytics.nn.Addmodules.SAConv import SAConv2d
 
-# 导入之前跑的卷积模块 SPDConv RFAConv 等 考虑放到多光谱 还是和雷达那边模态一起
+# 导入之前跑的卷积模块 SPDConv RFAConv
 from ultralytics.nn.Addmodules.RFAConv import RFAConv, RFAConv_yolov8, RFAConv_G, RFA_SPDConv, RFA_SPDConv_HWD_CARAFE, \
     RFA_SPDConv_Fourier_CARAFE, RFA_SPDConv_Fourier, RFA_SPDConv_HWD, RFA_SPDConv_Fourier_CARAFE_SDI, RFA_SPDConv_HWD_CARAFE_SDI,\
     RFA_SPDConv_Fourier_SDI, RFA_FFConv, RFA_SPDConv_FFC_ADown_CARAFE, RFA_SPDConv_OctC_CARAFE, RFA_SPD_FCConv, RFA_SPD_FCConv_HWD_ADown_CARAFE, \
@@ -128,15 +129,23 @@ from ultralytics.nn.Addmodules.RFAConv import RFAConv, RFAConv_yolov8, RFAConv_G
 
 
 # 导入AFPN文件中的检测头
-# from .modules.AFPN import Detect_AFPN
 from ultralytics.nn.Addmodules.Recursive_AFPN import Recursive_ASFF2,Recursive_ASFF3
-from ultralytics.nn.Addmodules.Recursive_Bi_AFPN import Recursive_ASFF2_BiFPN_Add2, Recursive_ASFF3_BiFPN_Add3
+from ultralytics.nn.Addmodules.Recursive_Bi_AFPN import Recursive_ASFF2_BiFPN_Add2, Recursive_ASFF3_BiFPN_Add3,Recursive_ASFF2_BiFPN_Add2_1,Recursive_ASFF3_BiFPN_Add3_1
 
 #### SPPF改进
 from ultralytics.nn.Addmodules.SPPF_improves import SPPF_deformable_LKA,Efficient_SPPF
 
-# 代码格式参考 B站 魔鬼面具
-DETECT_CLASS = (Detect,  Detect_LSCD, DetectAux, DetectDeepDBB, DetectWDBB,DetectV8)
+#### 自己改进
+from ultralytics.nn.Addmodules.CMMFWithenhanceMSDAF import MMFD
+
+from ultralytics.nn.Addmodules.AFPN import Detect_AFPN, ASFF2, ASFF3
+from ultralytics.nn.Addmodules.ASFF import Detect_ASFF
+from ultralytics.nn.Addmodules.BiFPN import BiFPN_Add2, BiFPN_Add3 # BiFPN
+from ultralytics.nn.Addmodules.Bi_FPN import Bi_FPN
+
+from ultralytics.nn.Addmodules.hybrid_module import SRSA,HybridModule,YOLO11Hybrid
+
+DETECT_CLASS = (Detect, Detect_AFPN, Detect_ASFF, Detect_LSCD, DetectAux, DetectDeepDBB, DetectWDBB,DetectV8)
 V10_DETECT_CLASS = (v10Detect,)
 SEGMENT_CLASS = (Segment, )
 POSE_CLASS = (Pose, Pose_LSCD,)
@@ -945,10 +954,16 @@ def attempt_load_weights(weights, device=None, inplace=True, fuse=False):
 
     # Module updates
     for m in ensemble.modules():
+        # t = type(m)
+        # if t in (nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU, Detect, Segment, Detect_AFPN):
+        #     m.inplace = inplace
+
         if hasattr(m, "inplace"):
             m.inplace = inplace
+
         elif isinstance(m, torch.nn.Upsample) and not hasattr(m, "recompute_scale_factor"):
             m.recompute_scale_factor = None  # torch 1.11.0 compatibility
+
 
     # Return model
     if len(ensemble) == 1:
@@ -980,6 +995,10 @@ def attempt_load_one_weight(weight, device=None, inplace=True, fuse=False):
 
     # Module updates
     for m in model.modules():
+        # t = type(m)
+        # if t in (nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU, Detect, Segment, Detect_AFPN):
+        #     m.inplace = inplace
+
         if hasattr(m, "inplace"):
             m.inplace = inplace
         elif isinstance(m, torch.nn.Upsample) and not hasattr(m, "recompute_scale_factor"):
@@ -1160,6 +1179,18 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
             #     c2 = make_divisible(min(c2, max_channels) * width, 8)
             args = [c2, args[1]]
 
+
+        elif m in {MMFD}:
+            c2 = max(ch[x] for x in f)
+            args =[c2]
+
+        # elif m in {CMMF}:
+        #     c2 = ch[f[0]]
+        #     # if c2 != nc:  # if c2 not equal to number of classes (i.e. for Classify() output)
+        #     #     c2 = make_divisible(min(c2, max_channels) * width, 8)
+        #     args = [c2, args[1]]
+
+
         elif m is NiNfusion:
             c1 = sum([ch[x] for x in f])
             c2 = c1 // 2
@@ -1168,17 +1199,31 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
             c2 = ch[f[0]]
             args = [c2, *args[1:]]
 
-        elif m in {Recursive_ASFF2, Recursive_ASFF2_BiFPN_Add2}:
+        elif m in {ASFF2,Recursive_ASFF2, Recursive_ASFF2_BiFPN_Add2,Recursive_ASFF2_BiFPN_Add2_1}:
             c1, c2 = [ch[f[0]], ch[f[1]]], args[0]
             c2 = make_divisible(min(c2, max_channels) * width, 8)
             args = [c1, c2, *args[1:]]
 
-        elif m in {Recursive_ASFF3, Recursive_ASFF3_BiFPN_Add3}:
+        elif m in {ASFF3,Recursive_ASFF3, Recursive_ASFF3_BiFPN_Add3, Recursive_ASFF3_BiFPN_Add3_1}:
             c1, c2 = [ch[f[0]], ch[f[1]], ch[f[2]]], args[0]
             c2 = make_divisible(min(c2, max_channels) * width, 8)
             args = [c1, c2, *args[1:]]
+
         elif m is RIFusion1:
             args = [args[0]]
+
+        elif m in {Bi_FPN}:
+            length = len([ch[x] for x in f])
+            args = [length]
+
+        elif m in [BiFPN_Add2, BiFPN_Add3]:
+            c2 = max([ch[x] for x in f])
+
+        elif m in [HybridModule]:
+            c2 = args[0]
+            if c2 != nc:  # if c2 not equal to number of classes (i.e. for Classify() output)
+                c2 = make_divisible(min(c2, max_channels) * width, 8)
+            args = [ch[f]]
 
         elif m in frozenset({CrossC2f,CrossC3k2}):
             c2 = args[0]
@@ -1393,7 +1438,7 @@ def guess_model_task(model):
                 return "pose"
             elif isinstance(m, OBB):
                 return "obb"
-            elif isinstance(m, (Detect,DetectDeepDBB,DetectV8,DetectAux,DetectWDBB, WorldDetect, v10Detect)):
+            elif isinstance(m, (Detect, Detect_AFPN, Detect_ASFF, DetectDeepDBB,DetectV8,DetectAux,DetectWDBB, WorldDetect, v10Detect)):
                 return "detect"
 
     # Guess from model filename
