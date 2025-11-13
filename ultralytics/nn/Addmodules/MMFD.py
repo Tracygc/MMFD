@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class DynamicAttentionGate(nn.Module):
-    """动态注意力门控网络 - 分配可见光和红外模态的权重"""
 
     def __init__(self, channels, reduction=16):
         super(DynamicAttentionGate, self).__init__()
@@ -58,7 +57,6 @@ class DynamicAttentionGate(nn.Module):
     
 
 class MultiScaleDifferentialAttention_DAG(nn.Module):
-    """多尺度差分注意力融合模块"""
 
     def __init__(self, channels, reduction=16):
         super(MultiScaleDifferentialAttention_DAG, self).__init__()
@@ -263,59 +261,7 @@ class EnhancedCMMFWithMSDAF_DAG(nn.Module):
 
 
 class MMFD(nn.Module):
-    """包含增强CMMF和ADD操作的完整模块"""
-
-    def __init__(self, c1, c2=None):
-        """
-        Args:
-            c1: 输入通道数（从YAML中读取的第一个参数）
-            c2: 可选参数，通常为None
-        """
-        super(MMFD, self).__init__()
-        self.channels = c1
-
-        # 增强的CMMF融合模块（包含多尺度差分注意力融合）
-        self.enhanced_cmmf = EnhancedCMMFWithMSDAF_DAG(self.channels)
-
-    def forward(self, x):
-        """
-        Args:
-            x: 输入列表，包含[backbone_feat, visible_feat, infrared_feat]
-        Returns:
-            output: 最终输出特征 [B, C, H, W]
-        """
-        # 从输入列表中解包三个特征
-        backbone_feat, visible_feat, infrared_feat = x
-
-        # 确保所有特征的通道数一致
-        if backbone_feat.size(1) != self.channels:
-            backbone_feat = self._adjust_channels(backbone_feat, self.channels)
-        if visible_feat.size(1) != self.channels:
-            visible_feat = self._adjust_channels(visible_feat, self.channels)
-        if infrared_feat.size(1) != self.channels:
-            infrared_feat = self._adjust_channels(infrared_feat, self.channels)
-
-        # 增强的CMMF融合（包含多尺度差分注意力融合）
-        fused_feat = self.enhanced_cmmf(visible_feat, infrared_feat)
-
-        # ADD操作 - 与骨干网络特征相加
-        output = backbone_feat + fused_feat
-
-        return output
-
-    def _adjust_channels(self, x, target_channels):
-        """调整特征图的通道数"""
-        current_channels = x.size(1)
-        if current_channels == target_channels:
-            return x
-        elif current_channels < target_channels:
-            # 如果当前通道数小于目标，用零填充
-            padding = torch.zeros(x.size(0), target_channels - current_channels,
-                                  x.size(2), x.size(3), device=x.device)
-            return torch.cat([x, padding], dim=1)
-        else:
-            # 如果当前通道数大于目标，取前target_channels个通道
-            return x[:, :target_channels, :, :]
+    "The code will be released soon."
 
 
 # 适配YOLO的ZeroConv2d模块
@@ -340,4 +286,5 @@ class ZeroConv2d(nn.Module):
 def autopad(k, p=None):
     if p is None:
         p = k // 2 if isinstance(k, int) else [x // 2 for x in k]
+
     return p
