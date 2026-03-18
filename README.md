@@ -67,7 +67,7 @@ python val_M3FD.py
 MMFD train: 
 Take the M3FD dataset as an example, and proceed with the following steps for training and testing in sequence.        
 ```
-python train_MMFD_my_M3FD.py
+python train_MMFD0_my_M3FD.py
 python val_M3FD.py
 ```
 
