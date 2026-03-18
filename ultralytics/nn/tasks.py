@@ -137,6 +137,8 @@ from ultralytics.nn.Addmodules.SPPF_improves import SPPF_deformable_LKA,Efficien
 
 #### 自己改进
 from ultralytics.nn.Addmodules.MMFD import MMFD
+from ultralytics.nn.Addmodules.MMFD0 import CMFM  # 修改后的版本 
+from ultralytics.nn.Addmodules.RAB-FPN import RAB_FPN_Add2, RAB_FPN_Add3
 
 from ultralytics.nn.Addmodules.AFPN import Detect_AFPN, ASFF2, ASFF3
 from ultralytics.nn.Addmodules.ASFF import Detect_ASFF
@@ -1180,7 +1182,7 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
             args = [c2, args[1]]
 
 
-        elif m in {MMFD}:
+        elif m in {MMFD, CMFM}:
             c2 = max(ch[x] for x in f)
             args =[c2]
 
@@ -1199,12 +1201,12 @@ def parse_model(d, ch, verbose=True):  # model_dict, input_channels(3)
             c2 = ch[f[0]]
             args = [c2, *args[1:]]
 
-        elif m in {ASFF2,Recursive_ASFF2, Recursive_ASFF2_BiFPN_Add2,Recursive_ASFF2_BiFPN_Add2_1}:
+        elif m in {ASFF2,Recursive_ASFF2, Recursive_ASFF2_BiFPN_Add2,Recursive_ASFF2_BiFPN_Add2_1, RAB_FPN_Add2}:
             c1, c2 = [ch[f[0]], ch[f[1]]], args[0]
             c2 = make_divisible(min(c2, max_channels) * width, 8)
             args = [c1, c2, *args[1:]]
 
-        elif m in {ASFF3,Recursive_ASFF3, Recursive_ASFF3_BiFPN_Add3, Recursive_ASFF3_BiFPN_Add3_1}:
+        elif m in {ASFF3,Recursive_ASFF3, Recursive_ASFF3_BiFPN_Add3, Recursive_ASFF3_BiFPN_Add3_1, RAB_FPN_Add3}:
             c1, c2 = [ch[f[0]], ch[f[1]], ch[f[2]]], args[0]
             c2 = make_divisible(min(c2, max_channels) * width, 8)
             args = [c1, c2, *args[1:]]
